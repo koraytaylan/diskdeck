@@ -780,6 +780,17 @@ impl StorageBackend for GcsBackend {
 mod tests {
     use super::*;
 
+    /// Generates a PEM-encoded RSA private key for testing.
+    fn test_rsa_pem() -> String {
+        use rsa::pkcs1::EncodeRsaPrivateKey;
+        use rsa::RsaPrivateKey;
+        let mut rng = rand::thread_rng();
+        let key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+        key.to_pkcs1_pem(rsa::pkcs1::LineEnding::LF)
+            .unwrap()
+            .to_string()
+    }
+
     #[test]
     fn normalize_key_strips_leading_slash() {
         assert_eq!(
@@ -843,7 +854,7 @@ mod tests {
     fn new_parses_valid_credentials() {
         let creds = serde_json::json!({
             "client_email": "test@project.iam.gserviceaccount.com",
-            "private_key": "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA2a2rwplBQLfYHUP8dOKWF0NMmMnOEviVxRbmpKfMFSmBLWfM\nWGNBHRAuHEFhbgLqDaEz+0mS7X5MpVngehAmFOp/XEPzk9GDh2stayv0pxCHCuFZ\nM0JsrMGLB8E1ItUkRkNrX4JqnO/BIIPkIrv4c0vCaJPdATKO+JKZOGRCYF0A2wmy\nY/Fv+hS/XP/e8mSCPB8ZP+M+GxxSjwflWo/M8PL5MYP+oz6k/IR7PI1gr4Yra7Z\njfiMfIFH4hSgLH2tdgGHVGDT7tOPBJ6tatYPMXIC+ps8liJGJPaOLsDqq5IU7aYI\ny1wFGNz8iB8M9fTQWj6GGp4iLHii9v0b1bkCIQIDAQABAoIBAAWHNzriHy1qLa2l\nC/lNc+6bTn4pF5jvPNP2MSWFq1LJkxYvXXc26P+bCZkU68YlSUlHNamVRSCjrXlY\nMT0/4IxVhYmQDEi7FpUq9J4i5KVjsQPv+vO47KXHIBKaB69tJhCfBrqKO8iWjHVi\neIcE2FGBTWMPxqJe6RNmrRLJXFG8Fmadsfab1i+hJuiAqHUfXCB/P1SOIQLF3Fme\na/5/BNGQQ+0OlAPTlBOp/cqyBHf7MH9RhfG2JgUDqHPLsMqaFHkrcX4CqQFE+90M\niI0s7/JA65n86WxNqK8gIC0fCXE3kLK/1h7BQFM1LxY8oHk0TSNPp2VSbAnqmxhVz\nvvCfOHECgYEA7X0bNbBVjK8mPaS3OQab8M7B8Rhe3oVJRPFvjMn8RRnNTMd77EPE\njTp7c0a5RANKqyXc2VagLHm3sHxAw7P+B0sFUJhfaJ3b3hBCfQjgX9M2DiZMHr7m\nIqenI3+CPFdnQ/z4hjmpTH9rBtrFJNoHn+fQaefynREL+aQIe5R+dqkCgYEA6i9J\nCAF6UOlNF5oVy/hXXvMrdIEPe1FfMDOLJz2uGT0p57FPfMLj5sHLDGdFG3cSR0EF\njx8B3F7VfPNmxCq7C7QFBwW3FNiiWzMbm2DQ6AsD10bUujMHPFiH5q8PWd5w8YUH\nwIoxz3m5j2UjERZ0f1t9yLz5g/jzE91YCTWHVWkCgYEAiJ2CVhmjJpA9eNQPFuKH\nz4bOaQ8xeN2gGQ8laO+Cvh1xUGaaMBkhFsBpxCDqp4vhg3pj+hEA/4gJL3i0pPP3\no7C0jL9J/1r/AB3dQPhlXf2OqB/JSlFjn2czYrLiHPSroRCvxwAVKf37GY9z0jLq\nOqj1mWAn/JdhcIbZSaXiYYECgYAcN/kpH4q7EeE+VwF5cB7C+PGvOxMdnMWfTUuE\nebfQMSED9N0buiCjPzOI9EKHJ0k7p12iD5AqknCxsopyJJqWEMB4l/jjplGBJrFC\nYQpCtdFnhb0LNml7WsJ/D/IEBxVxRfIlrMNiPzq+5GWXHXP0SBj3ar8kqaTdl1Ub\nQ6OWIQKBgDXLbJx1P3APMl/B0YNDg3MVg/rDAxkpcHFrM2cFXXhNbsJJkpN0hOF3\n1X0C+khZ07vDGoKO20S6GBVFdW3p4sgYTFG5l7o6bMPnnlPBMNNkdwfSe/0RLHef\nj7g/S0TQgkTM+EGWdE8VfGHhTP+YgNSqma2LbKO8RKYSK2D0XRXC\n-----END RSA PRIVATE KEY-----\n"
+            "private_key": test_rsa_pem()
         });
         let result = GcsBackend::new("my-bucket", &creds.to_string());
         assert!(result.is_ok());
