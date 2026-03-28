@@ -1,0 +1,223 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.dialog {
+  width: 400px;
+  max-width: 90vw;
+  background: var(--ui-panel-bg);
+  border: 1px solid var(--ui-line);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ui-line);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--editor-fg);
+}
+
+.closeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  color: var(--ui-fg);
+  transition: background 0.1s, color 0.1s;
+}
+
+.closeButton:hover {
+  background: var(--ui-selection-active);
+  color: var(--editor-fg);
+}
+
+.form {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ui-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.typeSelector {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.typeGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.typeGroupLabel {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ui-fg);
+  opacity: 0.6;
+}
+
+.typeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 6px;
+}
+
+.typeTile {
+  padding: 8px 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ui-fg);
+  background: var(--editor-bg);
+  border: 1px solid var(--ui-line);
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.typeTile:hover {
+  background: var(--ui-selection-active);
+  border-color: var(--ui-fg);
+}
+
+.typeTileActive {
+  background: var(--accent) !important;
+  color: var(--ui-bg) !important;
+  border-color: var(--accent) !important;
+}
+
+.typeTileDisabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.typeTileDisabled:hover {
+  background: var(--editor-bg);
+  border-color: var(--ui-line);
+}
+
+.input {
+  height: 32px;
+  padding: 0 10px;
+  background: var(--editor-bg);
+  border: 1px solid var(--ui-line);
+  border-radius: 4px;
+  color: var(--editor-fg);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.input:focus {
+  border-color: var(--accent);
+}
+
+.input::placeholder {
+  color: var(--ui-fg);
+  opacity: 0.5;
+}
+
+.pathRow {
+  display: flex;
+  gap: 6px;
+}
+
+.pathRow .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.browseButton {
+  height: 32px;
+  padding: 0 12px;
+  background: var(--ui-selection-active);
+  border: 1px solid var(--ui-line);
+  border-radius: 4px;
+  color: var(--editor-fg);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.browseButton:hover {
+  background: var(--accent);
+  color: var(--ui-bg);
+}
+
+.error {
+  font-size: 12px;
+  color: var(--error);
+  padding: 4px 0;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.cancelButton {
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--ui-fg);
+  transition: background 0.1s, color 0.1s;
+}
+
+.cancelButton:hover {
+  background: var(--ui-selection-active);
+  color: var(--editor-fg);
+}
+
+.submitButton {
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  background: var(--accent);
+  color: var(--ui-bg);
+  font-weight: 500;
+  transition: opacity 0.1s;
+}
+
+.submitButton:hover {
+  opacity: 0.9;
+}
+
+.submitButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

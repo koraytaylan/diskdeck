@@ -1,0 +1,75 @@
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  height: 100px;
+  padding: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.05s;
+}
+
+.cell:hover {
+  background: var(--ui-selection-active);
+}
+
+.cell.selected {
+  background: var(--ui-selection-active);
+  color: var(--accent);
+}
+
+.cell.dragging {
+  opacity: 0.4;
+}
+
+.cell.dropTarget {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-fg);
+  margin-bottom: 4px;
+}
+
+.cell.selected .icon {
+  color: var(--accent);
+}
+
+.label {
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  color: var(--editor-fg);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.3;
+  word-break: break-all;
+}
+
+.cell.selected .label {
+  color: var(--accent);
+}
+
+.renameInput {
+  width: 100%;
+  min-width: 0;
+  height: 20px;
+  padding: 0 4px;
+  background: var(--editor-bg);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: var(--editor-fg);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  text-align: center;
+}

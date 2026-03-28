@@ -1,0 +1,67 @@
+.bar {
+  display: flex;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--ui-line);
+  background: var(--ui-panel-bg);
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+
+.bar::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: none;
+  border-right: 1px solid var(--ui-line);
+  background: transparent;
+  color: var(--ui-fg);
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.tab:hover {
+  background: var(--ui-selection-bg);
+}
+
+.active {
+  background: var(--editor-bg);
+  color: var(--editor-fg);
+  border-bottom: 2px solid var(--accent);
+}
+
+.tabIcon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.tabLabel {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.closeButton {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--ui-fg);
+  cursor: pointer;
+  padding: 1px;
+  border-radius: 3px;
+  margin-left: 2px;
+}
+
+.closeButton:hover {
+  background: var(--ui-line);
+  color: var(--syntax-error);
+}

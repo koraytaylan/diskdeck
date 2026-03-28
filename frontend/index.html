@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DiskDeck</title>
+  </head>
+  <body>
+    <script>
+      // Apply theme before any rendering to prevent white flash
+      (function() {
+        var t = localStorage.getItem('diskdeck-theme');
+        if (t !== 'dark' && t !== 'mirage' && t !== 'light') t = 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      })();
+    </script>
+    <div id="root"></div>
+    <script type="module" src="/src/index.tsx"></script>
+  </body>
+</html>

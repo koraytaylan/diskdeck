@@ -1,0 +1,66 @@
+.node {
+  user-select: none;
+}
+
+.diskRow,
+.folderRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 8px 4px 4px;
+  color: var(--ui-fg);
+  font-size: 12px;
+  border-radius: 0;
+  transition: background 0.1s;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Prevent Lucide SVG icons from shrinking when sidebar is narrow */
+.diskRow > svg,
+.folderRow > svg {
+  flex-shrink: 0;
+}
+
+.diskRow {
+  font-weight: 500;
+}
+
+.diskRow:hover,
+.folderRow:hover {
+  background: var(--ui-selection-active);
+}
+
+.diskRow.active {
+  background: var(--ui-selection-active);
+  color: var(--accent);
+}
+
+.folderRow.activeFolder {
+  background: var(--ui-selection-active);
+  color: var(--accent);
+}
+
+.chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.diskRow.dropTarget,
+.folderRow.dropTarget {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}

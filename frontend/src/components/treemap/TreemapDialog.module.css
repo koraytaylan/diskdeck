@@ -1,0 +1,247 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.dialog {
+  width: 640px;
+  max-width: 90vw;
+  max-height: 85vh;
+  background: var(--ui-panel-bg);
+  border: 1px solid var(--ui-line);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ui-line);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--editor-fg);
+}
+
+.closeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  color: var(--ui-fg);
+  transition: background 0.1s, color 0.1s;
+}
+
+.closeButton:hover {
+  background: var(--ui-selection-active);
+  color: var(--editor-fg);
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--ui-fg);
+  border-bottom: 1px solid var(--ui-line);
+  flex-wrap: wrap;
+}
+
+.breadcrumbSegment {
+  cursor: pointer;
+  color: var(--accent);
+  transition: opacity 0.1s;
+}
+
+.breadcrumbSegment:hover {
+  opacity: 0.8;
+}
+
+.breadcrumbSeparator {
+  color: var(--ui-fg);
+  opacity: 0.4;
+}
+
+.body {
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.loading {
+  text-align: center;
+  padding: 24px;
+  font-size: 12px;
+  color: var(--ui-fg);
+}
+
+.emptyState {
+  text-align: center;
+  padding: 24px;
+  font-size: 12px;
+  color: var(--ui-fg);
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.barContainer {
+  display: flex;
+  width: 100%;
+  height: 32px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--editor-bg);
+  border: 1px solid var(--ui-line);
+}
+
+.barSegment {
+  height: 100%;
+  min-width: 2px;
+  transition: opacity 0.15s;
+  cursor: pointer;
+  position: relative;
+}
+
+.barSegment:hover {
+  opacity: 0.85;
+}
+
+.barSegmentDir {
+  background: var(--accent);
+}
+
+.barSegmentFile {
+  background: var(--ui-fg);
+  opacity: 0.5;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 3000;
+  background: var(--ui-panel-bg);
+  border: 1px solid var(--ui-line);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--editor-fg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.tooltipName {
+  font-weight: 600;
+}
+
+.tooltipSize {
+  color: var(--ui-fg);
+  margin-left: 6px;
+}
+
+.tooltipPercent {
+  color: var(--accent);
+  margin-left: 6px;
+}
+
+.entryList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.entryRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--editor-fg);
+  cursor: default;
+  transition: background 0.1s;
+}
+
+.entryRow:hover {
+  background: var(--ui-selection-active);
+}
+
+.entryRowClickable {
+  cursor: pointer;
+}
+
+.entryIcon {
+  flex-shrink: 0;
+  color: var(--ui-fg);
+}
+
+.entryIconDir {
+  color: var(--accent);
+}
+
+.entryName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entrySize {
+  flex-shrink: 0;
+  color: var(--ui-fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.entryPercent {
+  flex-shrink: 0;
+  width: 50px;
+  text-align: right;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.entryBar {
+  flex-shrink: 0;
+  width: 80px;
+  height: 6px;
+  background: var(--editor-bg);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.entryBarFill {
+  height: 100%;
+  border-radius: 3px;
+}
+
+.entryBarFillDir {
+  background: var(--accent);
+}
+
+.entryBarFillFile {
+  background: var(--ui-fg);
+  opacity: 0.5;
+}
+
+.totalRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+  border-top: 1px solid var(--ui-line);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--editor-fg);
+}

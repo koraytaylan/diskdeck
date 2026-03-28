@@ -1,0 +1,46 @@
+.wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+}
+
+.input {
+  width: 160px;
+  height: 24px;
+  padding: 0 8px;
+  background: var(--editor-bg);
+  border: 1px solid var(--ui-line);
+  border-radius: 4px;
+  color: var(--editor-fg);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s, width 0.2s;
+}
+
+.input:focus {
+  border-color: var(--accent);
+  width: 220px;
+}
+
+.input::placeholder {
+  color: var(--ui-fg);
+  opacity: 0.5;
+}
+
+.clearButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  color: var(--ui-fg);
+  transition: background 0.1s, color 0.1s;
+}
+
+.clearButton:hover {
+  background: var(--ui-selection-active);
+  color: var(--editor-fg);
+}

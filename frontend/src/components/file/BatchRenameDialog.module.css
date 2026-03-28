@@ -1,0 +1,180 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.dialog {
+  width: 480px;
+  max-width: 90vw;
+  max-height: 80vh;
+  background: var(--ui-panel-bg);
+  border: 1px solid var(--ui-line);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ui-line);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--editor-fg);
+}
+
+.closeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  color: var(--ui-fg);
+  transition: background 0.1s, color 0.1s;
+}
+
+.closeButton:hover {
+  background: var(--ui-selection-active);
+  color: var(--editor-fg);
+}
+
+.form {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ui-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.input {
+  height: 32px;
+  padding: 0 10px;
+  background: var(--editor-bg);
+  border: 1px solid var(--ui-line);
+  border-radius: 4px;
+  color: var(--editor-fg);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.input:focus {
+  border-color: var(--accent);
+}
+
+.input::placeholder {
+  color: var(--ui-fg);
+  opacity: 0.5;
+}
+
+.previewSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.previewRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--editor-fg);
+  padding: 2px 0;
+}
+
+.previewOld {
+  color: var(--ui-fg);
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.previewArrow {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.previewNew {
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.noChanges {
+  font-size: 12px;
+  color: var(--ui-fg);
+  opacity: 0.5;
+  font-style: italic;
+}
+
+.error {
+  font-size: 12px;
+  color: var(--error);
+  padding: 4px 0;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.cancelButton {
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--ui-fg);
+  transition: background 0.1s, color 0.1s;
+}
+
+.cancelButton:hover {
+  background: var(--ui-selection-active);
+  color: var(--editor-fg);
+}
+
+.submitButton {
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  background: var(--accent);
+  color: var(--ui-bg);
+  font-weight: 500;
+  transition: opacity 0.1s;
+}
+
+.submitButton:hover {
+  opacity: 0.9;
+}
+
+.submitButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

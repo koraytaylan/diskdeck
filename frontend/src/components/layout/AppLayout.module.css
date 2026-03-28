@@ -1,0 +1,49 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--ui-bg);
+}
+
+.panels {
+  flex: 1;
+  min-height: 0;
+}
+
+.handle {
+  width: 1px;
+  background: var(--ui-line);
+  transition: background 0.15s ease;
+  cursor: col-resize;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.handle:hover,
+.handle[data-active] {
+  background: var(--accent);
+}
+
+.expandButton {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 40px;
+  border-radius: 4px;
+  background: var(--ui-panel-bg);
+  border: 1px solid var(--ui-line);
+  color: var(--ui-fg);
+  cursor: pointer;
+  z-index: 10;
+  transition: background 0.1s, color 0.1s;
+}
+
+.expandButton:hover {
+  background: var(--ui-selection-active);
+  color: var(--accent);
+}

@@ -1,0 +1,281 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.dialog {
+  width: 680px;
+  max-width: 90vw;
+  max-height: 85vh;
+  background: var(--ui-panel-bg);
+  border: 1px solid var(--ui-line);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ui-line);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--editor-fg);
+}
+
+.closeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  color: var(--ui-fg);
+  transition: background 0.1s, color 0.1s;
+}
+
+.closeButton:hover {
+  background: var(--ui-selection-active);
+  color: var(--editor-fg);
+}
+
+.body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.selectorRow {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ui-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.select {
+  height: 32px;
+  padding: 0 8px;
+  background: var(--editor-bg);
+  border: 1px solid var(--ui-line);
+  border-radius: 4px;
+  color: var(--editor-fg);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  appearance: auto;
+}
+
+.select:focus {
+  border-color: var(--accent);
+}
+
+.input {
+  height: 32px;
+  padding: 0 10px;
+  background: var(--editor-bg);
+  border: 1px solid var(--ui-line);
+  border-radius: 4px;
+  color: var(--editor-fg);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.input:focus {
+  border-color: var(--accent);
+}
+
+.input::placeholder {
+  color: var(--ui-fg);
+  opacity: 0.5;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.compareButton {
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  background: var(--accent);
+  color: var(--ui-bg);
+  font-weight: 500;
+  transition: opacity 0.1s;
+}
+
+.compareButton:hover {
+  opacity: 0.9;
+}
+
+.compareButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.filterRow {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.filterButton {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--ui-fg);
+  transition: background 0.1s, color 0.1s;
+}
+
+.filterButton:hover {
+  background: var(--ui-selection-active);
+  color: var(--editor-fg);
+}
+
+.filterButtonActive {
+  background: var(--accent);
+  color: var(--ui-bg);
+}
+
+.filterButtonActive:hover {
+  background: var(--accent);
+  opacity: 0.9;
+}
+
+.summary {
+  font-size: 12px;
+  color: var(--ui-fg);
+  padding: 4px 0;
+}
+
+.summaryAdded {
+  color: var(--syntax-string);
+}
+
+.summaryRemoved {
+  color: var(--error);
+}
+
+.summaryModified {
+  color: var(--syntax-func);
+}
+
+.summaryUnchanged {
+  color: var(--ui-fg);
+  opacity: 0.6;
+}
+
+.resultTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.resultTable th {
+  text-align: left;
+  padding: 6px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ui-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--ui-line);
+  position: sticky;
+  top: 0;
+  background: var(--ui-panel-bg);
+}
+
+.resultTable td {
+  padding: 4px 8px;
+  color: var(--editor-fg);
+  border-bottom: 1px solid var(--ui-line);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resultsContainer {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.statusIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.statusAdded {
+  color: var(--syntax-string);
+}
+
+.statusRemoved {
+  color: var(--error);
+}
+
+.statusModified {
+  color: var(--syntax-func);
+}
+
+.statusUnchanged {
+  color: var(--ui-fg);
+  opacity: 0.4;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 24px;
+  color: var(--ui-fg);
+  opacity: 0.5;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.error {
+  font-size: 12px;
+  color: var(--error);
+  padding: 4px 0;
+}
+
+.nameCell {
+  max-width: 250px;
+}
+
+.sizeCell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

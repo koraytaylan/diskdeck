@@ -1,0 +1,11 @@
+.tree {
+  padding: 4px 0;
+}
+
+.empty {
+  padding: 16px 12px;
+  color: var(--ui-fg);
+  font-size: 12px;
+  text-align: center;
+  opacity: 0.7;
+}

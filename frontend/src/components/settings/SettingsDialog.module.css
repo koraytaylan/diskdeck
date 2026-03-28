@@ -1,0 +1,294 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.dialog {
+  width: 520px;
+  max-width: 90vw;
+  background: var(--ui-panel-bg);
+  border: 1px solid var(--ui-line);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  max-height: 80vh;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ui-line);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--editor-fg);
+  flex-shrink: 0;
+}
+
+.closeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  color: var(--ui-fg);
+  transition: background 0.1s, color 0.1s;
+}
+
+.closeButton:hover {
+  background: var(--ui-selection-active);
+  color: var(--editor-fg);
+}
+
+.tabBar {
+  display: flex;
+  gap: 0;
+  margin: 12px 16px 0;
+  border: 1px solid var(--ui-line);
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.tabButton {
+  flex: 1;
+  padding: 6px 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ui-fg);
+  background: var(--editor-bg);
+  transition: background 0.1s, color 0.1s;
+  cursor: pointer;
+  text-align: center;
+}
+
+.tabButton + .tabButton {
+  border-left: 1px solid var(--ui-line);
+}
+
+.tabButton:hover {
+  background: var(--ui-selection-active);
+}
+
+.tabActive {
+  background: var(--accent) !important;
+  color: var(--ui-bg) !important;
+}
+
+.body {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Appearance tab */
+.themeGroup {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--ui-line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.themeOption {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ui-fg);
+  background: var(--editor-bg);
+  transition: background 0.1s, color 0.1s;
+  cursor: pointer;
+}
+
+.themeOption + .themeOption {
+  border-left: 1px solid var(--ui-line);
+}
+
+.themeOption:hover {
+  background: var(--ui-selection-active);
+}
+
+.themeOptionActive {
+  background: var(--accent) !important;
+  color: var(--ui-bg) !important;
+}
+
+.sectionLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ui-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+/* Shortcuts tab */
+.categoryLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ui-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 16px;
+  margin-bottom: 4px;
+}
+
+.categoryLabel:first-child {
+  margin-top: 0;
+}
+
+.shortcutRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  padding: 0 4px;
+  border-bottom: 1px solid var(--ui-line);
+}
+
+.shortcutRow:last-child {
+  border-bottom: none;
+}
+
+.actionLabel {
+  font-size: 13px;
+  color: var(--editor-fg);
+}
+
+.rowRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.keyCombo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 24px;
+  padding: 0 8px;
+  background: var(--editor-bg);
+  border: 1px solid var(--ui-line);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--editor-fg);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.keyCombo:hover {
+  border-color: var(--accent);
+}
+
+.capturing {
+  border-color: var(--accent);
+  color: var(--accent);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.unset {
+  color: var(--ui-fg);
+  opacity: 0.4;
+  font-style: italic;
+}
+
+.resetButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  color: var(--ui-fg);
+  opacity: 0.4;
+  transition: opacity 0.1s, background 0.1s;
+}
+
+.resetButton:hover {
+  opacity: 1;
+  background: var(--ui-selection-active);
+}
+
+.conflictWarning {
+  font-size: 11px;
+  color: var(--syntax-error);
+  padding: 2px 4px;
+}
+
+.resetAllButton {
+  display: block;
+  margin: 16px auto 0;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--ui-fg);
+  transition: background 0.1s, color 0.1s;
+}
+
+.resetAllButton:hover {
+  background: var(--ui-selection-active);
+  color: var(--editor-fg);
+}
+
+/* Profiles tab */
+.profileDescription {
+  font-size: 12px;
+  color: var(--ui-fg);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.profileActions {
+  display: flex;
+  gap: 8px;
+}
+
+.profileButton {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--editor-fg);
+  background: var(--editor-bg);
+  border: 1px solid var(--ui-line);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.15s;
+}
+
+.profileButton:hover {
+  background: var(--ui-selection-active);
+  border-color: var(--accent);
+}
+
+.profileMessage {
+  font-size: 12px;
+  color: var(--accent);
+  margin-top: 8px;
+  text-align: center;
+}
+
+@keyframes pulse {
+  0%, 100% { border-color: var(--accent); }
+  50% { border-color: transparent; }
+}

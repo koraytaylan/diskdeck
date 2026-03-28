@@ -1,0 +1,16 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.scrollArea {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  user-select: none;
+}
+
+.row {
+  display: flex;
+}

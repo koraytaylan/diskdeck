@@ -1,0 +1,48 @@
+.sidebar {
+  height: 100%;
+  overflow-y: auto;
+  background: var(--ui-bg);
+  padding: 8px 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px 8px;
+  color: var(--ui-fg);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.headerButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  color: var(--ui-fg);
+  transition: background 0.1s, color 0.1s;
+}
+
+.headerButton:hover {
+  background: var(--ui-selection-active);
+  color: var(--accent);
+}
+
+.emptyHint {
+  padding: 16px 12px;
+  color: var(--ui-fg);
+  font-size: 12px;
+  text-align: center;
+  opacity: 0.7;
+}

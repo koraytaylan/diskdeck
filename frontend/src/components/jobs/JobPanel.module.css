@@ -1,0 +1,59 @@
+.panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1500;
+  background: var(--ui-panel-bg);
+  border-top: 1px solid var(--ui-line);
+  font-size: 11px;
+  color: var(--editor-fg);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 4px 12px;
+  background: none;
+  border: none;
+  color: var(--editor-fg);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.header:hover {
+  background: var(--ui-selection-bg);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.clearButton {
+  background: none;
+  border: none;
+  color: var(--ui-fg);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+}
+
+.clearButton:hover {
+  color: var(--syntax-error);
+}
+
+.summary {
+  font-weight: 500;
+}
+
+.list {
+  max-height: 200px;
+  overflow-y: auto;
+  border-top: 1px solid var(--ui-line);
+}

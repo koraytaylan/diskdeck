@@ -1,0 +1,133 @@
+/* Ayu color theme — Dark, Mirage, Light variants */
+/* Extracted from ayu npm package (https://github.com/ayu-theme/ayu-colors) */
+
+:root {
+  /* Transition for theme switching */
+  --theme-transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+/* ─── Dark ─── */
+[data-theme="dark"] {
+  /* Editor */
+  --editor-bg: #10141c;
+  --editor-fg: #bfbdb6;
+  --editor-line: #161a24;
+
+  /* UI */
+  --ui-bg: #0d1017;
+  --ui-fg: #555e73;
+  --ui-line: #1b1f29;
+  --ui-panel-bg: #141821;
+  --ui-panel-shadow: rgba(0, 0, 0, 0.5);
+  --ui-selection-active: rgba(51, 136, 255, 0.25);
+  --ui-selection-normal: rgba(71, 82, 102, 0.2);
+
+  /* Accent */
+  --accent: #e6b450;
+  --accent-on: #805600;
+
+  /* Semantic */
+  --error: #d95757;
+  --vcs-added: #70bf56;
+  --vcs-modified: #73b8ff;
+  --vcs-removed: #f26d78;
+
+  /* Syntax (used for highlights, badges, etc.) */
+  --syntax-tag: #39bae6;
+  --syntax-func: #ffb454;
+  --syntax-entity: #59c2ff;
+  --syntax-string: #aad94c;
+  --syntax-keyword: #ff8f40;
+  --syntax-error: #d95757;
+  --syntax-constant: #d2a6ff;
+
+  /* Editor extras */
+  --selection-active: rgba(51, 136, 255, 0.25);
+  --selection-inactive: rgba(128, 181, 255, 0.15);
+  --find-match: #4c4126;
+  --gutter: rgba(108, 115, 128, 0.6);
+}
+
+/* ─── Mirage ─── */
+[data-theme="mirage"] {
+  /* Editor */
+  --editor-bg: #242936;
+  --editor-fg: #cccac2;
+  --editor-line: #1a1f29;
+
+  /* UI */
+  --ui-bg: #1f2430;
+  --ui-fg: #707a8c;
+  --ui-line: #171b24;
+  --ui-panel-bg: #282e3b;
+  --ui-panel-shadow: rgba(0, 0, 0, 0.2);
+  --ui-selection-active: rgba(99, 117, 153, 0.15);
+  --ui-selection-normal: rgba(105, 117, 140, 0.12);
+
+  /* Accent */
+  --accent: #ffcc66;
+  --accent-on: #805500;
+
+  /* Semantic */
+  --error: #ff6666;
+  --vcs-added: #87d96c;
+  --vcs-modified: #80bfff;
+  --vcs-removed: #f27983;
+
+  /* Syntax */
+  --syntax-tag: #5ccfe6;
+  --syntax-func: #ffd173;
+  --syntax-entity: #73d0ff;
+  --syntax-string: #d5ff80;
+  --syntax-keyword: #ffad66;
+  --syntax-error: #ff6666;
+  --syntax-constant: #dfbfff;
+
+  /* Editor extras */
+  --selection-active: rgba(64, 159, 255, 0.25);
+  --selection-inactive: rgba(64, 159, 255, 0.13);
+  --find-match: #736950;
+  --gutter: rgba(138, 145, 153, 0.4);
+}
+
+/* ─── Light ─── */
+[data-theme="light"] {
+  /* Editor */
+  --editor-bg: #fcfcfc;
+  --editor-fg: #5c6166;
+  --editor-line: rgba(130, 142, 159, 0.1);
+
+  /* UI */
+  --ui-bg: #f8f9fa;
+  --ui-fg: #828e9f;
+  --ui-line: rgba(107, 125, 143, 0.12);
+  --ui-panel-bg: #fafafa;
+  --ui-panel-shadow: rgba(107, 125, 143, 0.07);
+  --ui-selection-active: rgba(86, 114, 143, 0.12);
+  --ui-selection-normal: rgba(107, 125, 143, 0.12);
+
+  /* Accent */
+  --accent: #f29718;
+  --accent-on: #804b00;
+
+  /* Semantic */
+  --error: #e65050;
+  --vcs-added: #6cbf43;
+  --vcs-modified: #478acc;
+  --vcs-removed: #ff7383;
+
+  /* Syntax */
+  --syntax-tag: #55b4d4;
+  --syntax-func: #f2a300;
+  --syntax-entity: #399ee6;
+  --syntax-string: #86b300;
+  --syntax-keyword: #ff7e33;
+  --syntax-error: #e65050;
+  --syntax-constant: #a37aca;
+
+  /* Editor extras */
+  --selection-active: rgba(3, 91, 214, 0.15);
+  --selection-inactive: rgba(3, 91, 214, 0.07);
+  --find-match: #ffe294;
+  --gutter: rgba(130, 142, 159, 0.4);
+}
