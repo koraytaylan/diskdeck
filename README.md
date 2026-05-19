@@ -817,5 +817,3 @@ Items roughly grouped by impact. Priority TBD — to be tackled one by one.
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
-
-By contributing to this repository, you agree that your contributions will be licensed under the MIT License.
