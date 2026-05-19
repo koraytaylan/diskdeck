@@ -1,6 +1,6 @@
 name: CI
 
-on:
+'on':
   push:
     branches: [main, develop]
   pull_request:
@@ -21,12 +21,12 @@ jobs:
       - name: Install stable Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: [clippy]
+          components: clippy
 
       - name: Cache Rust dependencies (Swatinem/rust-cache)
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: "backend -> target"
+          workspaces: backend
 
       - name: Run backend quality gates
         working-directory: backend
