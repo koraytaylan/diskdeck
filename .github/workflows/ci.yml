@@ -23,6 +23,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            libssl-dev \
+            pkg-config \
             libgtk-3-dev \
             libwebkit2gtk-4.1-dev \
             libappindicator3-dev \
@@ -42,9 +44,9 @@ jobs:
       - name: Run backend quality gates
         working-directory: backend
         run: |
-          cargo check
-          cargo test
-          cargo clippy -- -D warnings
+          cargo check --locked
+          cargo test --locked
+          cargo clippy --locked -- -D warnings
 
   frontend:
     name: Frontend (TypeScript + Vitest)
