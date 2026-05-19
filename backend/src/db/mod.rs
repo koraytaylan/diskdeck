@@ -15,8 +15,21 @@
 //! ## Recovery from corrupt or unreadable databases
 //!
 //! If the database file exists but cannot be decrypted (wrong key or
-//! corruption), it is deleted and recreated from scratch. Disk configs must be
-//! re-added by the user, and bookmarks and preferences are non-critical.
+//! corruption detected via failed `user_version` pragma or `Connection::open`),
+//! a timestamped backup is created first:
+//!
+//! - `diskdeck.db.corrupt.<YYYYMMDD-HHMMSS>.bak` (raw byte copy of the original)
+//! - `diskdeck.db.corrupt.<YYYYMMDD-HHMMSS>.bak.txt` (sidecar explaining the
+//!   incident, timestamp, and how to attempt manual restore by renaming back)
+//!
+//! The backup is written to the **same directory** as the original. Only after
+//! the backup (and sidecar) succeeds is the corrupt `diskdeck.db` removed and a
+//! fresh database created. This gives users and support staff a post-mortem
+//! recovery path without changing the "start fresh on irrecoverable key/DB"
+//! safety posture.
+//!
+//! If the backup copy fails for any reason (e.g. disk full), the original file
+//! is left untouched and a clear `DiskDeckError` is returned instead of deleting.
 //!
 //! ## Schema migrations
 //!
