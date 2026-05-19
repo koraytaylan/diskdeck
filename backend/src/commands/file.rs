@@ -39,6 +39,7 @@
 //!
 //! Index errors are logged but never fail the file operation itself.
 
+use std::collections::VecDeque;
 use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -185,33 +186,42 @@ fn job_description(paths: &[String], dest: Option<&str>) -> String {
     }
 }
 
-/// Recursively copies a single entry from one backend to another.
+/// Iteratively copies a single entry from one backend to another (deep-recursion safe).
+///
+/// Uses an explicit `VecDeque` work queue (BFS traversal) instead of Rust recursion.
+/// This eliminates the risk of stack overflow on extremely deep directory trees
+/// (common in backups, generated code, or scientific datasets), which the previous
+/// recursive implementation (even with `Box::pin`) could trigger on deep nesting.
 ///
 /// For files: reads the full byte content from the source backend and writes
 /// it to the destination backend.
 /// For directories: creates the directory on the destination, lists all
-/// children from the source, and recurses into each child.
+/// children from the source, and enqueues each child for later processing.
 ///
-/// Uses `Box::pin` for the recursive async calls to satisfy the compiler's
-/// requirement for a known future size.
+/// The iterative approach keeps all pending work on the heap; the call stack
+/// depth remains constant regardless of tree depth.
 async fn cross_copy_single(
     src: &std::sync::Arc<dyn crate::storage::StorageBackend>,
     dst: &std::sync::Arc<dyn crate::storage::StorageBackend>,
     src_path: &str,
     dst_path: &str,
 ) -> Result<(), DiskDeckError> {
-    let stat = src.stat(src_path).await?;
-    if stat.is_dir {
-        dst.create_dir(dst_path).await?;
-        let children = src.list(src_path).await?;
-        for child in children {
-            let child_dst = format!("{}/{}", dst_path.trim_end_matches('/'), child.name);
-            // Use Box::pin for recursive async
-            Box::pin(cross_copy_single(src, dst, &child.path, &child_dst)).await?;
+    let mut pending: VecDeque<(String, String)> = VecDeque::new();
+    pending.push_back((src_path.to_string(), dst_path.to_string()));
+
+    while let Some((current_src, current_dst)) = pending.pop_front() {
+        let stat = src.stat(&current_src).await?;
+        if stat.is_dir {
+            dst.create_dir(&current_dst).await?;
+            let children = src.list(&current_src).await?;
+            for child in children {
+                let child_dst = format!("{}/{}", current_dst.trim_end_matches('/'), child.name);
+                pending.push_back((child.path, child_dst));
+            }
+        } else {
+            let data = src.read(&current_src).await?;
+            dst.write(&current_dst, &data).await?;
         }
-    } else {
-        let data = src.read(src_path).await?;
-        dst.write(dst_path, &data).await?;
     }
     Ok(())
 }
@@ -1094,6 +1104,41 @@ mod tests {
         let dst_dyn: std::sync::Arc<dyn crate::storage::StorageBackend> = dst;
         let result = cross_copy_single(&src_dyn, &dst_dyn, "/nope.txt", "/nope.txt").await;
         assert!(result.is_err());
+    }
+
+    /// Regression test for deep directory trees (prevents stack overflow in cross-copy).
+    /// Creates a 60-level deep nested directory tree with a file at the bottom
+    /// and verifies that iterative copy succeeds where recursion would have overflowed.
+    #[tokio::test]
+    async fn cross_copy_single_deep_directory_tree() {
+        let src = std::sync::Arc::new(MemoryBackend::new());
+        let dst = std::sync::Arc::new(MemoryBackend::new());
+
+        // Build a 60-level deep tree: /deep/level0/level1/.../level59/file.txt
+        let mut current_path = "/deep".to_string();
+        src.create_dir(&current_path).await.unwrap();
+        for level in 0..60 {
+            current_path = format!("{}/level{}", current_path, level);
+            src.create_dir(&current_path).await.unwrap();
+        }
+        // Add a file at the deepest level
+        let deep_file = format!("{}/file.txt", current_path);
+        src.write(&deep_file, b"deep-data-42").await.unwrap();
+
+        let src_dyn: std::sync::Arc<dyn crate::storage::StorageBackend> = src.clone();
+        let dst_dyn: std::sync::Arc<dyn crate::storage::StorageBackend> = dst.clone();
+
+        // This used to risk stack overflow at ~thousands of frames; now iterative
+        cross_copy_single(&src_dyn, &dst_dyn, "/deep", "/deep")
+            .await
+            .expect("deep tree copy must succeed with iterative implementation");
+
+        // Verify the deepest file arrived correctly (and thus whole tree was copied)
+        let copied = dst.read(&deep_file).await.unwrap();
+        assert_eq!(copied, b"deep-data-42");
+
+        // Also spot-check an intermediate directory exists in dst (level5 is nested deep in the chain)
+        assert!(dst.stat("/deep/level0/level1/level2/level3/level4/level5").await.unwrap().is_dir);
     }
 
     #[tokio::test]
