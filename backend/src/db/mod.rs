@@ -23,10 +23,12 @@
 //!   incident, timestamp, and how to attempt manual restore by renaming back)
 //!
 //! The backup is written to the **same directory** as the original. Only after
-//! the backup (and sidecar) succeeds is the corrupt `diskdeck.db` removed and a
-//! fresh database created. This gives users and support staff a post-mortem
-//! recovery path without changing the "start fresh on irrecoverable key/DB"
-//! safety posture.
+//! the backup copy (`.bak` file) succeeds is the corrupt `diskdeck.db` removed
+//! and a fresh database created. The accompanying `.bak.txt` sidecar is
+//! best-effort (written after the critical backup copy; a sidecar failure does
+//! not prevent deletion of the original or recovery). This gives users and
+//! support staff a post-mortem recovery path without changing the "start fresh
+//! on irrecoverable key/DB" safety posture.
 //!
 //! If the backup copy fails for any reason (e.g. disk full), the original file
 //! is left untouched and a clear `DiskDeckError` is returned instead of deleting.
@@ -179,15 +181,19 @@ impl DiskStore {
                 // Verify the database is readable
                 match conn.pragma_query_value(None, "user_version", |row| row.get::<_, i32>(0)) {
                     Ok(_) => Self::init(conn),
-                    Err(_) => {
+                    Err(e) => {
                         // Key mismatch or corrupt DB — backup first, then recreate
                         log::warn!(
-                            "Database appears corrupt or key mismatch, starting fresh"
+                            "Database appears corrupt or key mismatch, starting fresh: {}",
+                            e
                         );
                         drop(conn);
                         backup_and_remove_corrupt_db(
                             &db_path,
-                            "user_version pragma failed after key application (possible key mismatch or corruption)",
+                            &format!(
+                                "user_version pragma failed after key application (possible key mismatch or corruption): {}",
+                                e
+                            ),
                         )?;
                         let conn = Connection::open(&db_path)?;
                         if !key.is_empty() {
@@ -197,12 +203,15 @@ impl DiskStore {
                     }
                 }
             }
-            Err(_) => {
+            Err(e) => {
                 // File cannot be opened at all — backup first (if exists), then recreate
-                log::warn!("Database cannot be opened, starting fresh");
+                log::warn!("Database cannot be opened, starting fresh: {}", e);
                 backup_and_remove_corrupt_db(
                     &db_path,
-                    "Connection::open failed (file missing, unreadable, or permissions issue)",
+                    &format!(
+                        "Connection::open failed (file missing, unreadable, or permissions issue): {}",
+                        e
+                    ),
                 )?;
                 let conn = Connection::open(&db_path)?;
                 if !key.is_empty() {
@@ -879,21 +888,34 @@ fn backup_and_remove_corrupt_db(db_path: &Path, reason: &str) -> Result<(), Disk
         return Ok(());
     }
 
-    let timestamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
-    let parent = db_path.parent().unwrap_or(db_path);
+    let now = chrono::Local::now();
+    // Use millisecond precision to avoid filename collisions on rapid successive recoveries.
+    let timestamp = format!(
+        "{}-{:03}",
+        now.format("%Y%m%d-%H%M%S"),
+        now.timestamp_subsec_millis()
+    );
+    let parent = db_path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| std::path::Path::new("."));
     let backup_name = format!("diskdeck.db.corrupt.{}.bak", timestamp);
     let backup_path = parent.join(&backup_name);
 
     // 1. Copy the raw bytes first. This must succeed before we consider deleting.
     if let Err(e) = std::fs::copy(db_path, &backup_path) {
-        let msg = format!(
-            "Could not create backup of corrupt database before recovery ({}) at {}: {}. Refusing to delete the original.",
+        let full_detail = format!(
+            "Could not create backup of corrupt database before recovery (reason: {}) at {}: {}. Refusing to delete the original.",
             reason,
             db_path.display(),
             e
         );
-        log::error!("{}", msg);
-        return Err(DiskDeckError::Database(msg));
+        log::error!("{}", full_detail);
+        // Return a user-visible error (Storage passes the message through IPC sanitization)
+        // without embedding internal paths in the user-facing string; full details are logged.
+        return Err(DiskDeckError::Storage(
+            "Could not create a backup of the corrupt database before recovery. The original database file has been preserved for safety. Check the application logs for details.".to_string()
+        ));
     }
 
     // 2. Best-effort sidecar (optional but strongly recommended per requirements).
