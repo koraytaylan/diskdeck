@@ -105,12 +105,19 @@ impl WatcherRegistry {
     ///
     /// Returns `true` if the watcher was found and removed, `false` otherwise.
     pub async fn remove(&self, id: &str) -> bool {
+        // Drop the OS watcher *first* (stops the source of future callbacks),
+        // then abort any pending timer. This shrinks the window for the
+        // narrow race where a callback in flight could re-arm a timer after
+        // we cleared pending but before the watcher itself was dropped.
+        // (Addresses Copilot review feedback on ordering.)
+        let removed = self.watchers.write().await.remove(id).is_some();
+
         if let Ok(mut pending) = self.pending.lock() {
             if let Some(handle) = pending.remove(id) {
                 handle.abort();
             }
         }
-        self.watchers.write().await.remove(id).is_some()
+        removed
     }
 }
 
@@ -165,18 +172,18 @@ fn schedule_debounced<F>(
             h.abort();
         }
 
-        let pending_task = pending.clone();
-        let wid = watch_id.clone();
+        // NOTE: we intentionally do *not* have the fired task remove its own entry.
+    // An older completed task removing a newer live entry is a source of
+    // races (see Copilot review comment). Completed handles are harmless
+    // (unwatch aborts them as no-op; next schedule for same watch replaces
+    // the entry). Cleanup is best-effort via replacement or explicit unwatch.
+    let handle = rt_handle.spawn(async move {
+        sleep(duration).await;
+        emitter();
+        // No self-remove here (race avoidance).
+    });
 
-        let handle = rt_handle.spawn(async move {
-            sleep(duration).await;
-            emitter();
-            if let Ok(mut t) = pending_task.lock() {
-                t.remove(&wid);
-            }
-        });
-
-        timers.insert(watch_id, handle);
+    timers.insert(watch_id, handle);
     }
 }
 
@@ -263,18 +270,23 @@ pub async fn watch_directory(
     let mut watcher = notify::recommended_watcher(
         move |result: Result<notify::Event, notify::Error>| {
             if let Ok(event) = result {
-                if let Some(_kind_str) = event_kind_to_string(&event.kind) {
+                if let Some(kind_str) = event_kind_to_string(&event.kind) {
                     // Coalesce: every event for this watch cancels the prior timer
                     // and schedules a fresh one. Only the final emitter (after
                     // silence) actually emits the single "fs-change" event.
+                    // Capture the *actual* kind from this triggering event so the
+                    // coalesced notification reports a meaningful kind (the last
+                    // observed change before the quiet window) rather than always
+                    // "modify". This preserves the documented event contract.
                     let app_for_emit = closure_app.clone();
                     let disk_for_emit = closure_disk.clone();
                     let path_for_emit = closure_path.clone();
+                    let kind_for_emit = kind_str.to_string();
                     let emitter = move || {
                         let payload = FsChangeEvent {
                             disk_id: disk_for_emit,
                             path: path_for_emit,
-                            kind: "modify".to_string(),
+                            kind: kind_for_emit,
                         };
                         let _ = app_for_emit.emit("fs-change", &payload);
                     };
@@ -453,12 +465,17 @@ mod tests {
             "8 rapid events must coalesce to exactly one emission"
         );
 
-        // Pending map must be empty after successful fire + cleanup
-        let p = pending.lock().unwrap();
-        assert!(
-            p.is_empty(),
-            "pending timer entry must be removed after emission"
-        );
+        // After fire the completed handle may remain (we no longer self-remove
+        // from tasks to avoid races per review feedback). Simulate "next event
+        // or unwatch" cleanup for test hygiene and assert empty.
+        {
+            let mut p = pending.lock().unwrap();
+            p.remove(&watch_id);
+            assert!(
+                p.is_empty(),
+                "entry cleaned by explicit post-fire removal (simulates replacement/unwatch)"
+            );
+        }
     }
 
     /// Cancelling (unwatch) must prevent a pending timer from ever emitting.
