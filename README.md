@@ -49,6 +49,7 @@ A cross-platform file explorer that connects to multiple storage backends throug
 - [Contributing](#contributing)
   - [Definition of Done](#definition-of-done)
   - [Rules](#rules)
+- [License](#license)
 - [Roadmap](#roadmap)
 
 ---
@@ -745,6 +746,8 @@ Every unit of work (feature, bug fix, refactor) must satisfy ALL of the followin
 - **New Tauri commands** require changes in three places: the `#[tauri::command]` fn, registration in `lib.rs` → `invoke_handler`, and a typed wrapper in `frontend/src/lib/ipc.ts`.
 - **New storage backends** require changes in five places: the implementation file, `storage/mod.rs`, `DiskType` enum, `backend_from_config*()` factory functions, and `AddDiskDialog.tsx` form fields. Nothing else should need to change.
 
+By contributing to this repository, you agree that your contributions will be licensed under the MIT License.
+
 ---
 
 ## Roadmap
@@ -814,3 +817,7 @@ Items roughly grouped by impact. Priority TBD — to be tackled one by one.
 |---|------|-------------|------------|
 | 12 | Integration tests | Testcontainers-based tests for S3 (MinIO), Azure (Azurite), SFTP (openssh-server), FTP (vsftpd); Podman-compatible | Medium |
 | 13 | CI pipeline | GitHub Actions workflows: unit tests on every push, integration tests with containerized services | Small |
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
