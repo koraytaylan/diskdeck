@@ -18,8 +18,8 @@
 //! corruption detected via failed `user_version` pragma or `Connection::open`),
 //! a timestamped backup is created first:
 //!
-//! - `diskdeck.db.corrupt.<YYYYMMDD-HHMMSS>.bak` (raw byte copy of the original)
-//! - `diskdeck.db.corrupt.<YYYYMMDD-HHMMSS>.bak.txt` (sidecar explaining the
+//! - `diskdeck.db.corrupt.<YYYYMMDD-HHMMSS[-<mmm>]>.bak` (raw byte copy of the original)
+//! - `diskdeck.db.corrupt.<YYYYMMDD-HHMMSS[-<mmm>]>.bak.txt` (sidecar explaining the
 //!   incident, timestamp, and how to attempt manual restore by renaming back)
 //!
 //! The backup is written to the **same directory** as the original. Only after
@@ -918,6 +918,14 @@ fn backup_and_remove_corrupt_db(db_path: &Path, reason: &str) -> Result<(), Disk
         ));
     }
 
+    // Log backup success *immediately* after copy (before any later steps that could fail).
+    // This ensures the backup location is always recorded in logs even if sidecar or remove_file later fail.
+    log::warn!(
+        "Successfully created timestamped backup {} of corrupt database before recovery. Reason: {}. Original will now be removed.",
+        backup_path.display(),
+        reason
+    );
+
     // 2. Best-effort sidecar (optional but strongly recommended per requirements).
     let sidecar_name = format!("diskdeck.db.corrupt.{}.bak.txt", timestamp);
     let sidecar_path = parent.join(&sidecar_name);
@@ -951,10 +959,23 @@ fn backup_and_remove_corrupt_db(db_path: &Path, reason: &str) -> Result<(), Disk
     }
 
     // 3. Only now is it safe to delete the original.
-    std::fs::remove_file(db_path)?;
+    // Handle remove failure gracefully: the backup exists and is the important artifact for recovery.
+    if let Err(e) = std::fs::remove_file(db_path) {
+        let full_detail = format!(
+            "Backup {} created successfully for corrupt DB (reason: {}), but remove_file of original {} failed: {}. Backup remains available.",
+            backup_path.display(),
+            reason,
+            db_path.display(),
+            e
+        );
+        log::error!("{}", full_detail);
+        return Err(DiskDeckError::Storage(
+            "Backup of the corrupt database succeeded, but the original file could not be removed (it may be locked or in use on this system). The backup copy is preserved in the same directory and can be used for manual recovery or inspection. Check the application logs for the exact backup path.".to_string()
+        ));
+    }
 
     log::warn!(
-        "Created timestamped backup {} (and sidecar) of corrupt database before recovery. Reason: {}. Original deleted; fresh DB will be created.",
+        "Removed original corrupt database after successful backup. Fresh DB will be created. Backup: {}. Reason: {}",
         backup_path.display(),
         reason
     );
