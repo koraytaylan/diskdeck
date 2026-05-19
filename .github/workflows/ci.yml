@@ -70,7 +70,7 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Install frontend dependencies
-        run: pnpm --dir frontend install
+        run: pnpm --dir frontend install --frozen-lockfile
 
       - name: TypeScript type check
         working-directory: frontend
