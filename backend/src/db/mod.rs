@@ -180,12 +180,15 @@ impl DiskStore {
                 match conn.pragma_query_value(None, "user_version", |row| row.get::<_, i32>(0)) {
                     Ok(_) => Self::init(conn),
                     Err(_) => {
-                        // Key mismatch or corrupt DB — remove and recreate
+                        // Key mismatch or corrupt DB — backup first, then recreate
                         log::warn!(
                             "Database appears corrupt or key mismatch, starting fresh"
                         );
                         drop(conn);
-                        let _ = std::fs::remove_file(&db_path);
+                        backup_and_remove_corrupt_db(
+                            &db_path,
+                            "user_version pragma failed after key application (possible key mismatch or corruption)",
+                        )?;
                         let conn = Connection::open(&db_path)?;
                         if !key.is_empty() {
                             conn.pragma_update(None, "key", format!("x'{key}'"))?;
@@ -195,9 +198,12 @@ impl DiskStore {
                 }
             }
             Err(_) => {
-                // File cannot be opened at all — remove and recreate
+                // File cannot be opened at all — backup first (if exists), then recreate
                 log::warn!("Database cannot be opened, starting fresh");
-                let _ = std::fs::remove_file(&db_path);
+                backup_and_remove_corrupt_db(
+                    &db_path,
+                    "Connection::open failed (file missing, unreadable, or permissions issue)",
+                )?;
                 let conn = Connection::open(&db_path)?;
                 if !key.is_empty() {
                     conn.pragma_update(None, "key", format!("x'{key}'"))?;
@@ -857,6 +863,83 @@ fn run_migrations(conn: &Connection) -> Result<(), DiskDeckError> {
     Ok(())
 }
 
+/// Backs up a corrupt/unreadable `diskdeck.db` (if it exists) to a timestamped
+/// `.bak` file + explanatory `.txt` sidecar in the same directory, then removes
+/// the original. If the backup step fails, the original is left in place and
+/// an error is returned so the caller does not blindly delete user data.
+///
+/// This is the single place that implements the "never delete without a parachute"
+/// safety rule for database recovery. Called from the two recovery branches in
+/// [`DiskStore::new`].
+///
+/// The sidecar is best-effort (does not fail the backup if it cannot be written).
+fn backup_and_remove_corrupt_db(db_path: &Path, reason: &str) -> Result<(), DiskDeckError> {
+    if !db_path.exists() {
+        // No file to back up (e.g. first-run or already-deleted). Proceed to create fresh.
+        return Ok(());
+    }
+
+    let timestamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
+    let parent = db_path.parent().unwrap_or(db_path);
+    let backup_name = format!("diskdeck.db.corrupt.{}.bak", timestamp);
+    let backup_path = parent.join(&backup_name);
+
+    // 1. Copy the raw bytes first. This must succeed before we consider deleting.
+    if let Err(e) = std::fs::copy(db_path, &backup_path) {
+        let msg = format!(
+            "Could not create backup of corrupt database before recovery ({}) at {}: {}. Refusing to delete the original.",
+            reason,
+            db_path.display(),
+            e
+        );
+        log::error!("{}", msg);
+        return Err(DiskDeckError::Database(msg));
+    }
+
+    // 2. Best-effort sidecar (optional but strongly recommended per requirements).
+    let sidecar_name = format!("diskdeck.db.corrupt.{}.bak.txt", timestamp);
+    let sidecar_path = parent.join(&sidecar_name);
+    let sidecar_content = format!(
+        "DiskDeck database recovery backup\n\
+         \n\
+         Reason: {}\n\
+         Timestamp (local): {}\n\
+         Original database path: {}\n\
+         Backup file: {}\n\
+         \n\
+         This is a raw byte-for-byte copy of the diskdeck.db file that could not be\n\
+         opened/decrypted (key mismatch, keychain issue, or file corruption).\n\
+         \n\
+         To attempt manual recovery with a different key or SQLCipher tooling:\n\
+         1. Rename the .bak file back to 'diskdeck.db' in the same directory.\n\
+         2. Ensure the correct 32-byte encryption key is available in the OS keychain.\n\
+         3. Restart DiskDeck.\n\
+         \n\
+         Power users and support staff can use this file + sidecar for post-mortem\n\
+         analysis or forensic recovery. The backup is never encrypted or moved.\n",
+        reason, timestamp, db_path.display(), backup_path.display()
+    );
+    if let Err(e) = std::fs::write(&sidecar_path, sidecar_content) {
+        log::warn!(
+            "Backup .bak created successfully but sidecar {} could not be written: {}",
+            sidecar_path.display(),
+            e
+        );
+        // Do not fail the whole backup for sidecar — it is user-friendly, not mandatory for safety.
+    }
+
+    // 3. Only now is it safe to delete the original.
+    std::fs::remove_file(db_path)?;
+
+    log::warn!(
+        "Created timestamped backup {} (and sidecar) of corrupt database before recovery. Reason: {}. Original deleted; fresh DB will be created.",
+        backup_path.display(),
+        reason
+    );
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1016,8 +1099,8 @@ mod tests {
         // Write garbage to simulate an encrypted/corrupt database file
         std::fs::write(&db_path, b"not a sqlite database at all").unwrap();
 
-        // DiskStore::new should detect the corruption, delete the file,
-        // and create a fresh database
+        // DiskStore::new should detect the corruption, *backup* the file first
+        // (creating .bak + .txt sidecar), delete the original, and create fresh DB.
         let store = DiskStore::new(dir.path(), "").unwrap();
         let disks = store.load().unwrap();
         assert!(disks.is_empty());
@@ -1028,6 +1111,29 @@ mod tests {
             .unwrap();
         let loaded = store.load().unwrap();
         assert_eq!(loaded.len(), 1);
+
+        // Critical safety check: a timestamped backup + sidecar must exist next to the (now-deleted) original
+        let dir_entries: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(Result::ok)
+            .collect();
+        let bak_file = dir_entries.iter().find(|e| {
+            let name = e.file_name().to_string_lossy().to_string();
+            name.contains("diskdeck.db.corrupt.") && name.ends_with(".bak")
+        });
+        assert!(
+            bak_file.is_some(),
+            "expected a timestamped .bak backup file to have been created before deleting the corrupt DB"
+        );
+
+        let txt_file = dir_entries.iter().find(|e| {
+            let name = e.file_name().to_string_lossy().to_string();
+            name.contains("diskdeck.db.corrupt.") && name.ends_with(".bak.txt")
+        });
+        assert!(
+            txt_file.is_some(),
+            "expected a .bak.txt sidecar explaining the recovery to have been created"
+        );
     }
 
     #[test]
