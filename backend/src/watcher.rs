@@ -2,8 +2,17 @@
 //!
 //! Provides Tauri IPC commands to start and stop watching local directories
 //! for changes. When a file is created, modified, or deleted in a watched
-//! directory, an `"fs-change"` event is emitted to the frontend so the file
-//! list can auto-refresh.
+//! directory, a **debounced/coalesced** `"fs-change"` event is emitted to the
+//! frontend so the file list can auto-refresh.
+//!
+//! ## Debouncing / Coalescing
+//!
+//! High-frequency events for the same `(disk, path)` watch are coalesced:
+//! only a single `"fs-change"` notification is delivered after
+//! `DEBOUNCE_DURATION_MS` (200 ms) of silence. This dramatically reduces
+//! IPC noise for busy directories (builds, node_modules, Downloads, etc.)
+//! while preserving the exact same `FsChangeEvent` payload shape.
+//! The frontend listener in `FileContext` requires zero changes.
 //!
 //! ## Scope
 //!
@@ -18,18 +27,28 @@
 //! watcher is stored in [`AppState::watchers`] keyed by a generated UUID
 //! ("watch ID"). Calling [`unwatch_directory`] drops the watcher, which
 //! stops the OS-level file system monitor.
+//!
+//! Rapid events are coalesced inside the watcher module using per-watch-ID
+//! `tokio::task::JoinHandle` timers (cancelled cleanly on unwatch or drop).
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 use tokio::sync::RwLock;
+use tokio::{runtime::Handle as TokioHandle, task::JoinHandle, time::sleep};
 
 use crate::error::DiskDeckError;
 use crate::models::disk::DiskType;
 use crate::state::AppState;
+
+/// Debounce window for coalescing rapid fs-change events into a single notification.
+/// Chosen to balance responsiveness (UI feels live) with noise reduction under churn.
+const DEBOUNCE_DURATION_MS: u64 = 200;
 
 /// Payload emitted to the frontend when a filesystem change is detected.
 #[derive(Debug, Clone, Serialize)]
@@ -46,9 +65,17 @@ pub struct FsChangeEvent {
 ///
 /// Each entry holds a `RecommendedWatcher` that will be dropped (and thus
 /// stopped) when removed from the map.
+///
+/// Also manages per-watch-ID debounce timers to coalesce high-frequency
+/// fs-change events (see `DEBOUNCE_DURATION_MS` and `schedule_debounced`).
 pub struct WatcherRegistry {
     /// Map of watch ID to active watcher instance.
     watchers: RwLock<HashMap<String, RecommendedWatcher>>,
+    /// Shared state for pending debounce timers (one per active watch ID).
+    /// Uses std::sync::Mutex because it is accessed from both async commands
+    /// and the synchronous notify callback closure (which may run on a
+    /// background OS thread).
+    pending: Arc<Mutex<HashMap<String, JoinHandle<()>>>>,
 }
 
 impl Default for WatcherRegistry {
@@ -62,6 +89,7 @@ impl WatcherRegistry {
     pub fn new() -> Self {
         Self {
             watchers: RwLock::new(HashMap::new()),
+            pending: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -72,9 +100,36 @@ impl WatcherRegistry {
 
     /// Removes and drops a watcher, stopping filesystem monitoring.
     ///
+    /// Also aborts any pending debounce timer for that watch ID (prevents
+    /// a late emission after the directory is no longer watched).
+    ///
     /// Returns `true` if the watcher was found and removed, `false` otherwise.
     pub async fn remove(&self, id: &str) -> bool {
-        self.watchers.write().await.remove(id).is_some()
+        // Drop the OS watcher *first* (stops the source of future callbacks),
+        // then abort any pending timer. This shrinks the window for the
+        // narrow race where a callback in flight could re-arm a timer after
+        // we cleared pending but before the watcher itself was dropped.
+        // (Addresses Copilot review feedback on ordering.)
+        let removed = self.watchers.write().await.remove(id).is_some();
+
+        if let Ok(mut pending) = self.pending.lock() {
+            if let Some(handle) = pending.remove(id) {
+                handle.abort();
+            }
+        }
+        removed
+    }
+}
+
+impl Drop for WatcherRegistry {
+    /// On registry drop (e.g. app shutdown), abort all pending debounce tasks
+    /// to avoid orphaned timers.
+    fn drop(&mut self) {
+        if let Ok(mut pending) = self.pending.lock() {
+            for (_, handle) in pending.drain() {
+                handle.abort();
+            }
+        }
     }
 }
 
@@ -89,6 +144,46 @@ fn event_kind_to_string(kind: &EventKind) -> Option<&'static str> {
         EventKind::Modify(_) => Some("modify"),
         EventKind::Remove(_) => Some("delete"),
         _ => None,
+    }
+}
+
+/// Schedules (or reschedules) a debounced filesystem change emission for a
+/// given watch ID.
+///
+/// This is the core of the coalescing logic: every incoming fs event for a
+/// watch cancels any prior pending timer and arms a fresh one. When the
+/// timer fires after `duration` of silence, the provided `emitter` closure
+/// is invoked exactly once (the "coalesced" notification).
+///
+/// The function is synchronous so it can be called directly from the
+/// `notify` callback closure (which runs on a non-async OS thread).
+fn schedule_debounced<F>(
+    pending: Arc<Mutex<HashMap<String, JoinHandle<()>>>>,
+    duration: Duration,
+    watch_id: String,
+    emitter: F,
+    rt_handle: TokioHandle,
+) where
+    F: FnOnce() + Send + 'static,
+{
+    {
+        let mut timers = pending.lock().unwrap();
+        if let Some(h) = timers.remove(&watch_id) {
+            h.abort();
+        }
+
+        // NOTE: we intentionally do *not* have the fired task remove its own entry.
+    // An older completed task removing a newer live entry is a source of
+    // races (see Copilot review comment). Completed handles are harmless
+    // (unwatch aborts them as no-op; next schedule for same watch replaces
+    // the entry). Cleanup is best-effort via replacement or explicit unwatch.
+    let handle = rt_handle.spawn(async move {
+        sleep(duration).await;
+        emitter();
+        // No self-remove here (race avoidance).
+    });
+
+    timers.insert(watch_id, handle);
     }
 }
 
@@ -131,8 +226,13 @@ async fn resolve_local_path(
 /// Starts watching a local directory for changes.
 ///
 /// Creates an OS-level filesystem watcher that monitors the specified
-/// directory (non-recursively). When files are created, modified, or deleted,
-/// an `"fs-change"` event is emitted to the frontend.
+/// directory (non-recursively). Incoming events are debounced/coalesced
+/// per watch ID (see `DEBOUNCE_DURATION_MS`) so that the frontend receives
+/// at most one `"fs-change"` notification after a quiet period, even under
+/// very high event rates (e.g. builds, installs, log churn).
+///
+/// The public event payload shape is unchanged; callers of the command and
+/// the frontend listener require no modifications.
 ///
 /// # Errors
 ///
@@ -155,16 +255,49 @@ pub async fn watch_directory(
     let disk_id_clone = disk_id.clone();
     let path_clone = path.clone();
 
+    // Capture everything needed by the sync notify callback and the debouncer.
+    // The callback may execute on a non-tokio OS thread, so we pass a runtime
+    // Handle (obtained while we are still on the async command thread) and
+    // the Arc-protected pending map (cheap to clone).
+    let rt_handle = TokioHandle::current();
+    let pending_arc = state.watchers.pending.clone();
+    let closure_watch_id = watch_id.clone();
+    let closure_disk = disk_id_clone.clone();
+    let closure_path = path_clone.clone();
+    let closure_app = app_clone.clone();
+    let closure_rt = rt_handle.clone();
+
     let mut watcher = notify::recommended_watcher(
         move |result: Result<notify::Event, notify::Error>| {
             if let Ok(event) = result {
                 if let Some(kind_str) = event_kind_to_string(&event.kind) {
-                    let payload = FsChangeEvent {
-                        disk_id: disk_id_clone.clone(),
-                        path: path_clone.clone(),
-                        kind: kind_str.to_string(),
+                    // Coalesce: every event for this watch cancels the prior timer
+                    // and schedules a fresh one. Only the final emitter (after
+                    // silence) actually emits the single "fs-change" event.
+                    // Capture the *actual* kind from this triggering event so the
+                    // coalesced notification reports a meaningful kind (the last
+                    // observed change before the quiet window) rather than always
+                    // "modify". This preserves the documented event contract.
+                    let app_for_emit = closure_app.clone();
+                    let disk_for_emit = closure_disk.clone();
+                    let path_for_emit = closure_path.clone();
+                    let kind_for_emit = kind_str.to_string();
+                    let emitter = move || {
+                        let payload = FsChangeEvent {
+                            disk_id: disk_for_emit,
+                            path: path_for_emit,
+                            kind: kind_for_emit,
+                        };
+                        let _ = app_for_emit.emit("fs-change", &payload);
                     };
-                    let _ = app_clone.emit("fs-change", &payload);
+
+                    schedule_debounced(
+                        pending_arc.clone(),
+                        Duration::from_millis(DEBOUNCE_DURATION_MS),
+                        closure_watch_id.clone(),
+                        emitter,
+                        closure_rt.clone(),
+                    );
                 }
             }
         },
@@ -182,8 +315,9 @@ pub async fn watch_directory(
 
 /// Stops watching a directory by removing its watcher.
 ///
-/// The watcher is dropped, which stops the OS-level monitor. If the
-/// watch ID is not found (already unwatched or invalid), returns an error.
+/// The watcher is dropped, which stops the OS-level monitor. Any pending
+/// debounce timer for the watch ID is aborted (no stray "fs-change" will
+/// be emitted after unwatch). If the watch ID is not found, returns an error.
 #[tauri::command]
 pub async fn unwatch_directory(
     state: State<'_, AppState>,
@@ -288,6 +422,99 @@ mod tests {
         assert_eq!(
             event_kind_to_string(&EventKind::Access(notify::event::AccessKind::Read)),
             None
+        );
+    }
+
+    // ─── Debounce / coalescing tests (for Issue #4) ────────────────────────
+
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    /// Core debounce logic test: N rapid simulated events must produce
+    /// exactly 1 emission after the quiet window (coalescing).
+    #[tokio::test]
+    async fn debounce_coalesces_many_rapid_events_into_one() {
+        let pending: Arc<Mutex<HashMap<String, JoinHandle<()>>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        let duration = Duration::from_millis(40); // short window for fast test
+        let emit_count = Arc::new(AtomicUsize::new(0));
+        let rt = TokioHandle::current();
+        let watch_id = "test-watch-debounce".to_string();
+
+        // Fire 8 rapid "fs events" with tiny gaps << debounce window
+        for _ in 0..8 {
+            let count = emit_count.clone();
+            let emitter = move || {
+                count.fetch_add(1, Ordering::SeqCst);
+            };
+            schedule_debounced(
+                pending.clone(),
+                duration,
+                watch_id.clone(),
+                emitter,
+                rt.clone(),
+            );
+            tokio::time::sleep(Duration::from_millis(3)).await;
+        }
+
+        // Allow the final timer to fire (window + margin)
+        tokio::time::sleep(Duration::from_millis(80)).await;
+
+        assert_eq!(
+            emit_count.load(Ordering::SeqCst),
+            1,
+            "8 rapid events must coalesce to exactly one emission"
+        );
+
+        // After fire the completed handle may remain (we no longer self-remove
+        // from tasks to avoid races per review feedback). Simulate "next event
+        // or unwatch" cleanup for test hygiene and assert empty.
+        {
+            let mut p = pending.lock().unwrap();
+            p.remove(&watch_id);
+            assert!(
+                p.is_empty(),
+                "entry cleaned by explicit post-fire removal (simulates replacement/unwatch)"
+            );
+        }
+    }
+
+    /// Cancelling (unwatch) must prevent a pending timer from ever emitting.
+    #[tokio::test]
+    async fn debounce_timer_is_aborted_on_cancel() {
+        let pending: Arc<Mutex<HashMap<String, JoinHandle<()>>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        let duration = Duration::from_millis(150);
+        let emit_count = Arc::new(AtomicUsize::new(0));
+        let rt = TokioHandle::current();
+        let watch_id = "test-watch-cancel".to_string();
+
+        let count = emit_count.clone();
+        let emitter = move || {
+            count.fetch_add(1, Ordering::SeqCst);
+        };
+        schedule_debounced(
+            pending.clone(),
+            duration,
+            watch_id.clone(),
+            emitter,
+            rt.clone(),
+        );
+
+        // Simulate immediate unwatch / cancel
+        {
+            let mut p = pending.lock().unwrap();
+            if let Some(h) = p.remove(&watch_id) {
+                h.abort();
+            }
+        }
+
+        // Wait past the would-be window
+        tokio::time::sleep(Duration::from_millis(220)).await;
+
+        assert_eq!(
+            emit_count.load(Ordering::SeqCst),
+            0,
+            "aborted timer must never call the emitter"
         );
     }
 }
