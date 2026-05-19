@@ -14,13 +14,14 @@
 //! The spawned task:
 //! 1. Processes entries one by one.
 //! 2. Updates progress in the registry and emits `"job-update"` events.
-//! 3. Checks the job's `cancel_flag` between items for cooperative cancellation.
+//! 3. Checks the job's `cancel_flag` between items (and inside cross-disk tree walks) for cooperative cancellation.
 //! 4. Transitions the job to a terminal state when done.
 //!
 //! ## Cancellation
 //!
 //! Cancellation is **cooperative**: the spawned task checks an `AtomicBool`
-//! flag between files. A cancelled job:
+//! flag between items (and at each step inside long-running cross-disk directory
+//! trees via `cross_copy_single`). A cancelled job:
 //! - Sets its status to `Cancelled` in the registry.
 //! - Emits a final `"job-update"` event.
 //! - May leave the operation partially completed (some files copied/moved,
@@ -39,7 +40,7 @@
 //!
 //! Index errors are logged but never fail the file operation itself.
 
-use std::collections::VecDeque;
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -188,35 +189,49 @@ fn job_description(paths: &[String], dest: Option<&str>) -> String {
 
 /// Iteratively copies a single entry from one backend to another (deep-recursion safe).
 ///
-/// Uses an explicit `VecDeque` work queue (BFS traversal) instead of Rust recursion.
+/// Uses an explicit `Vec` work stack (DFS / LIFO traversal) instead of Rust recursion.
 /// This eliminates the risk of stack overflow on extremely deep directory trees
-/// (common in backups, generated code, or scientific datasets), which the previous
-/// recursive implementation (even with `Box::pin`) could trigger on deep nesting.
+/// (2,000–10,000+ levels per #3) while also keeping peak memory for pending work
+/// lower in many wide-tree scenarios than the original recursive DFS or a BFS
+/// queue would (full `Entry` metadata from `list()` is dropped immediately after
+/// extracting only the needed path strings for siblings).
 ///
 /// For files: reads the full byte content from the source backend and writes
 /// it to the destination backend.
 /// For directories: creates the directory on the destination, lists all
-/// children from the source, and enqueues each child for later processing.
+/// children from the source, and pushes each child onto the stack for later
+/// (depth-first) processing.
 ///
-/// The iterative approach keeps all pending work on the heap; the call stack
-/// depth remains constant regardless of tree depth.
+/// The optional `cancel_flag` (passed by `run_cross_*_loop` callers) is checked
+/// cooperatively at the start of each work item in the loop. If set, returns
+/// early with `Ok(())` (the tree copy may be partial). This provides finer-grained
+/// cancellation inside deep/wide trees than top-level checks alone.
+///
+/// The call-stack depth remains constant (O(1) w.r.t. tree depth); all pending
+/// state lives on the heap.
 async fn cross_copy_single(
     src: &std::sync::Arc<dyn crate::storage::StorageBackend>,
     dst: &std::sync::Arc<dyn crate::storage::StorageBackend>,
     src_path: &str,
     dst_path: &str,
+    cancel_flag: Option<&AtomicBool>,
 ) -> Result<(), DiskDeckError> {
-    let mut pending: VecDeque<(String, String)> = VecDeque::new();
-    pending.push_back((src_path.to_string(), dst_path.to_string()));
+    let mut pending: Vec<(String, String)> = Vec::new();
+    pending.push((src_path.to_string(), dst_path.to_string()));
 
-    while let Some((current_src, current_dst)) = pending.pop_front() {
+    while let Some((current_src, current_dst)) = pending.pop() {
+        if let Some(flag) = cancel_flag {
+            if flag.load(std::sync::atomic::Ordering::Relaxed) {
+                return Ok(());
+            }
+        }
         let stat = src.stat(&current_src).await?;
         if stat.is_dir {
             dst.create_dir(&current_dst).await?;
             let children = src.list(&current_src).await?;
             for child in children {
                 let child_dst = format!("{}/{}", current_dst.trim_end_matches('/'), child.name);
-                pending.push_back((child.path, child_dst));
+                pending.push((child.path, child_dst));
             }
         } else {
             let data = src.read(&current_src).await?;
@@ -440,9 +455,20 @@ pub(crate) async fn run_cross_copy_loop(
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
         let dst_path = format!("{}/{}", dest.trim_end_matches('/'), file_name);
-        if let Err(e) = cross_copy_single(src_backend, dst_backend, src_path, &dst_path).await {
+        if let Err(e) = cross_copy_single(src_backend, dst_backend, src_path, &dst_path, Some(cancel_flag)).await {
+            // Even on error path, re-check cancel in case it was set mid-tree
+            if cancel_flag.load(std::sync::atomic::Ordering::Relaxed) {
+                registry.finish(job_id, JobStatus::Cancelled, None).await;
+                return JobStatus::Cancelled;
+            }
             registry.finish(job_id, JobStatus::Failed, Some(e.to_string())).await;
             return JobStatus::Failed;
+        }
+        // Post-call check: if cancel was observed inside cross_copy_single (even on last top-level item),
+        // ensure we report Cancelled instead of falling through to Completed.
+        if cancel_flag.load(std::sync::atomic::Ordering::Relaxed) {
+            registry.finish(job_id, JobStatus::Cancelled, None).await;
+            return JobStatus::Cancelled;
         }
     }
     registry.finish(job_id, JobStatus::Completed, None).await;
@@ -470,9 +496,19 @@ pub(crate) async fn run_cross_move_loop(
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
         let dst_path = format!("{}/{}", dest.trim_end_matches('/'), file_name);
-        if let Err(e) = cross_copy_single(src_backend, dst_backend, src_path, &dst_path).await {
+        if let Err(e) = cross_copy_single(src_backend, dst_backend, src_path, &dst_path, Some(cancel_flag)).await {
+            // Even on error path, re-check cancel in case it was set mid-tree
+            if cancel_flag.load(std::sync::atomic::Ordering::Relaxed) {
+                registry.finish(job_id, JobStatus::Cancelled, None).await;
+                return JobStatus::Cancelled;
+            }
             registry.finish(job_id, JobStatus::Failed, Some(e.to_string())).await;
             return JobStatus::Failed;
+        }
+        // Post-call check after cross_copy for move: catch mid-tree cancel (prevents partial delete + ensures Cancelled status)
+        if cancel_flag.load(std::sync::atomic::Ordering::Relaxed) {
+            registry.finish(job_id, JobStatus::Cancelled, None).await;
+            return JobStatus::Cancelled;
         }
         if let Err(e) = src_backend.delete(src_path).await {
             registry.finish(job_id, JobStatus::Failed, Some(e.to_string())).await;
@@ -1071,7 +1107,7 @@ mod tests {
         src.write("/hello.txt", b"world").await.unwrap();
         let src_dyn: std::sync::Arc<dyn crate::storage::StorageBackend> = src.clone();
         let dst_dyn: std::sync::Arc<dyn crate::storage::StorageBackend> = dst.clone();
-        cross_copy_single(&src_dyn, &dst_dyn, "/hello.txt", "/hello.txt")
+        cross_copy_single(&src_dyn, &dst_dyn, "/hello.txt", "/hello.txt", None)
             .await
             .unwrap();
         assert_eq!(dst.read("/hello.txt").await.unwrap(), b"world");
@@ -1088,7 +1124,7 @@ mod tests {
 
         let src_dyn: std::sync::Arc<dyn crate::storage::StorageBackend> = src.clone();
         let dst_dyn: std::sync::Arc<dyn crate::storage::StorageBackend> = dst.clone();
-        cross_copy_single(&src_dyn, &dst_dyn, "/docs", "/docs")
+        cross_copy_single(&src_dyn, &dst_dyn, "/docs", "/docs", None)
             .await
             .unwrap();
 
@@ -1102,22 +1138,26 @@ mod tests {
         let dst = std::sync::Arc::new(MemoryBackend::new());
         let src_dyn: std::sync::Arc<dyn crate::storage::StorageBackend> = src;
         let dst_dyn: std::sync::Arc<dyn crate::storage::StorageBackend> = dst;
-        let result = cross_copy_single(&src_dyn, &dst_dyn, "/nope.txt", "/nope.txt").await;
+        let result = cross_copy_single(&src_dyn, &dst_dyn, "/nope.txt", "/nope.txt", None).await;
         assert!(result.is_err());
     }
 
-    /// Regression test for deep directory trees (prevents stack overflow in cross-copy).
-    /// Creates a 60-level deep nested directory tree with a file at the bottom
-    /// and verifies that iterative copy succeeds where recursion would have overflowed.
+    /// Regression guard for deep directory trees (prevents re-introduction of recursion in cross-copy).
+    ///
+    /// Creates a 1000-level deep nested directory tree with a file at the bottom
+    /// and verifies that the iterative (stack-based) copy succeeds.
+    /// 1000 levels exercises the scenario that was at high risk of stack overflow
+    /// under the old recursive implementation (original #3 risk was for 2,000–10,000 levels);
+    /// this serves as a practical regression test while remaining fast to execute.
     #[tokio::test]
     async fn cross_copy_single_deep_directory_tree() {
         let src = std::sync::Arc::new(MemoryBackend::new());
         let dst = std::sync::Arc::new(MemoryBackend::new());
 
-        // Build a 60-level deep tree: /deep/level0/level1/.../level59/file.txt
+        // Build a 1000-level deep tree: /deep/level0/level1/.../level999/file.txt
         let mut current_path = "/deep".to_string();
         src.create_dir(&current_path).await.unwrap();
-        for level in 0..60 {
+        for level in 0..1000 {
             current_path = format!("{}/level{}", current_path, level);
             src.create_dir(&current_path).await.unwrap();
         }
@@ -1128,8 +1168,7 @@ mod tests {
         let src_dyn: std::sync::Arc<dyn crate::storage::StorageBackend> = src.clone();
         let dst_dyn: std::sync::Arc<dyn crate::storage::StorageBackend> = dst.clone();
 
-        // This used to risk stack overflow at ~thousands of frames; now iterative
-        cross_copy_single(&src_dyn, &dst_dyn, "/deep", "/deep")
+        cross_copy_single(&src_dyn, &dst_dyn, "/deep", "/deep", None)
             .await
             .expect("deep tree copy must succeed with iterative implementation");
 
