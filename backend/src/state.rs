@@ -143,7 +143,7 @@ impl JobRegistry {
         for entry in jobs.values() {
             infos.push(entry.info.read().await.clone());
         }
-        infos.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        infos.sort_by_key(|b| std::cmp::Reverse(b.created_at));
         infos
     }
 
