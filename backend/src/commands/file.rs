@@ -881,7 +881,7 @@ pub(crate) async fn get_size_breakdown_inner(
             is_dir: entry.is_dir,
         });
     }
-    result.sort_by(|a, b| b.size.cmp(&a.size));
+    result.sort_by_key(|b| std::cmp::Reverse(b.size));
     Ok(result)
 }
 

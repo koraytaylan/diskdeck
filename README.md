@@ -1,5 +1,7 @@
 # DiskDeck
 
+[![CI](https://github.com/koraytaylan/diskdeck/actions/workflows/ci.yml/badge.svg)](https://github.com/koraytaylan/diskdeck/actions/workflows/ci.yml)
+
 A cross-platform file explorer that connects to multiple storage backends through a unified interface. Browse local files, AWS S3 buckets, Google Cloud Storage buckets, Azure Blob containers, SFTP servers, and FTP/FTPS servers from a single application — with tabs, file previews, cross-disk transfers, and a familiar file manager experience.
 
 ---
@@ -718,6 +720,8 @@ cargo tauri dev
 ```
 
 All three backend checks (build, test, clippy with `-D warnings`) must pass. Frontend must pass `tsc --noEmit` and `pnpm test`.
+
+All PRs are validated by GitHub Actions CI. See `.github/workflows/ci.yml`.
 
 ### Definition of Done
 
